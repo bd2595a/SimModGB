@@ -43,12 +43,12 @@ unsigned char getVideoState() {
 	return (unsigned char)((by | (videostate & 0xf8)) & 0xff);
 }
 
-
-unsigned char memoryRead(int address) {
+unsigned char memoryread(int address)
+{
 	if (address >= 0 && address <= 0x3FFF)
 		return rom[address];
 	else if (address >= 0x4000 && address <= 0x7FFF)
-		return rom[romOffset + address & 0x4000];
+		return rom[romOffset + address % 0x4000];
 	else if (address >= 0x8000 && address <= 0x9FFF)
 		return graphicsRAM[address % 0x2000];
 	else if (address >= 0xC000 && address <= 0xDFFF)
@@ -69,34 +69,38 @@ unsigned char memoryRead(int address) {
 		return cmpline;
 	else
 		return 0;
+	//return rom[address];
 }
-
-void memoryWrite(int address, unsigned char b) {
+void memorywrite(int address, unsigned char value)
+{
 	if (address >= 0 && address <= 0x3FFF)
-		setRomMode(address, b);
+		setRomMode(address, value);
+	else if (address >= 0x4000 && address <= 0x7FFF)
+		qDebug() << value << " is outside of memorywrite spefications. (x4000-x7FFF)" << endl;
 	else if (address >= 0x8000 && address <= 0x9FFF)
-		graphicsRAM[address % 0x2000] = b;
+		graphicsRAM[address % 0x2000] = value;
 	else if (address >= 0xC000 && address <= 0xDFFF)
-		workingRAM[address % 0x2000] = b;
-	else if (address >= 0xFF80 && address <= 0xFFFF)
-		page0RAM[address % 0x80] = b;
+		workingRAM[address % 0x2000] = value;
 	else if (address == 0xFF00)
-		keyboardColumn = b;
+		keyboardColumn = value;
 	else if (address == 0xFF40)
-		setControlByte(b);
+		setControlByte(value);
 	else if (address == 0xFF41)
-		videostate = b;
+		videostate = value;
 	else if (address == 0xFF42)
-		scrolly = b;
+		scrolly = value;
 	else if (address == 0xFF43)
-		scrollx = b;
+		scrollx = value;
 	else if (address == 0xFF44)
-		line = b;
+		line = value;
 	else if (address == 0xFF45)
-		cmpline = b;
+		cmpline = value;
 	else if (address == 0xFF47)
-		setPalette(b);
-	address += 0;
+		setPalette(value);
+	else if (address >= 0xFF80 && address <= 0xFFFF)
+		page0RAM[address % 0x80] = value;
+	else
+		qDebug() << value << " is outside of memorywrite spefications." << endl;
 }
 
 void renderScreen()
@@ -150,7 +154,7 @@ int main(int argc, char **argv)
 	romfile.read(rom, size);
 	romfile.close();
 
-	Z80* z80 = new Z80(memoryRead, memoryWrite);//create the z80
+	Z80* z80 = new Z80(memoryread, memorywrite);//create the z80
 	z80->reset();//reset it
 	while (true)//do all of its instructions
 	{
