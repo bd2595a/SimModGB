@@ -103,45 +103,60 @@ void memorywrite(int address, unsigned char value)
 		qDebug() << value << " is outside of memorywrite spefications." << endl;
 }
 
-void renderScreen()
-{
-	for (int i = 0; i < 144; i++)//for each pixel
+void renderScreen(){
+	for (int row = 0; row < 144; row++)
 	{
-		for (int j = 0; j < 160; j++)
+		for (int column = 0; column < 160; column++)
 		{
-			int x = j, y = i; 
-			int tilex = ((x + scrollx) & 255) / 8, tiley = ((y + scrolly) & 255) / 8;//find the tile coord in the 8x8 screen
-			int tileposition = tiley * 32 + tilex;//find the tile based off the coord
-			int tileindex = graphicsRAM[(tilemap == 0 ? 0x1800 : 0x1c00) + tileposition];//based on the tilemap, find the index
-			int tileaddress;//find the address of the tile
-			if (tileset == 1)
+			//apply scroll
+			//SWAPPED X and Y
+			int y = row, x = column;
+
+			// x = (x + scrollx)&255;
+			// y = (y + scrolly)&255;
+			//THIS ERRORS FOR SOME REASON Bus error: 10 (MOVED DOWN!)
+
+			//determine which tile pixel belongs to
+			// int tilex = x/8, tiley = y/8;
+			int tilex = ((x + scrollx) & 255) / 8, tiley = ((y + scrolly) & 255) / 8;
+			//find tileposition in 1D array
+			int tileposition = tiley * 32 + tilex;
+
+			int tileindex, tileaddress;
+			if (tileset == 1){ //tilemap1
+				tileindex = graphicsRAM[0x1c00 + tileposition];
 				tileaddress = tileindex * 16;
-			else
-			{
+			}
+			else { //tilemap0
+				tileindex = graphicsRAM[0x1800 + tileposition];
 				if (tileindex >= 128)
-					tileindex = tileindex - 256;
+					tileindex -= 256;
 				tileaddress = tileindex * 16 + 0x1000;
 			}
-			//two byte calculation for each tile's rows
-			int xoffset = x % 8, yoffset = y % 8;
+
+			//get which pixel is in the tile
+			int xoffset = x % 8, yoffset = y % 8; //should use &
+			//get the two bytes for each row in tile
 			int row0 = graphicsRAM[tileaddress + yoffset * 2];
 			int row1 = graphicsRAM[tileaddress + yoffset * 2 + 1];
 
-			//get the pixel color
+			//Binary math to get binary indexed color info across both bytes
 			int row0shifted = row0 >> (7 - xoffset);
-			int row1shifted = row1 >> (7 - xoffset);
 			int row0capturepixel = row0shifted & 1;
+
+			int row1shifted = row1 >> (7 - xoffset);
 			int row1capturepixel = row1shifted & 1;
 
+			//combine byte info to get color
 			int pixel = row1capturepixel * 2 + row0capturepixel;
-			//get actual color from the pixel palette index
+			//get color based on palette
 			int color = palette[pixel];
+
 			updateSquare(x, y, color);
 		}
 	}
 	onFrame();
 }
-
 //program starts here
 int main(int argc, char **argv)
 {
@@ -191,6 +206,7 @@ int main(int argc, char **argv)
 			{
 				line = 0;
 				renderScreen();
+				onFrame();
 			}
 		}
 		totalInstructions++;
